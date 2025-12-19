@@ -1,21 +1,29 @@
-# OpenSandbox
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="OpenSandbox logo" width="150" />
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alibaba/OpenSandbox)
+  <h1>OpenSandbox</h1>
 
--------
+  [![GitHub stars](https://img.shields.io/github/stars/alibaba/OpenSandbox.svg?style=social)](https://github.com/alibaba/OpenSandbox)
+  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alibaba/OpenSandbox)
+  [![license](https://img.shields.io/github/license/alibaba/OpenSandbox.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+  [![PyPI version](https://badge.fury.io/py/opensandbox.svg)](https://badge.fury.io/py/opensandbox)
+
+
+  <hr />
+</div>
 
 English | [中文](docs/README_zh.md)
 
 OpenSandbox is a **universal sandbox platform** for AI application scenarios, providing **multi-language SDKs, unified sandbox protocols, and sandbox runtimes** for LLM-related capabilities (command execution, file operations, code execution, browser operations, Agent execution, etc.).
 
-## Core Features
+## Features
 
-- **Multi-language SDKs**: Provides client SDKs in Python, Java, TypeScript (TODO), and other languages (`sdks/`).
-- **Sandbox Protocol**: All sandboxes follow the same OAS interface specification (`specs/`). You can extend your own sandbox runtime through this unified protocol.
-- **Sandbox Runtime**: Supports local execution (`server/`) and Kubernetes cluster execution (TODO).
-- **Multiple Sandbox Implementations**: Built-in implementations for Command, Filesystem (`components/execd/`), Code Interpreter (`sandboxes/code-interpreter/`), Browser Use, Coding Agent (Claude Code), and more, with examples (`examples/`).
+- **Multi-language SDKs**: Provides sandbox SDKs in Python, Java, TypeScript (Roadmap),Go(Roadmap) and other languages.
+- **Sandbox Protocol**: Defines sandbox lifecycle management API and sandbox execution API. You can extend your own sandbox runtime through these sandbox protocols.
+- **Sandbox Runtime**: Implements sandbox lifecycle management by default, supports Docker, Kubernetes(Roadmap) and other runtimes, enabling large-scale distributed sandbox scheduling.
+- **Sandbox Environments**: Built-in implementations for Command, Filesystem, Code Interpreter. And provides examples for Coding Agents (Claude Code, etc.), Browser automation (Chrome, Playwright), and Desktop environments (VNC, VS Code).
 
-## Usage Examples
+## Examples
 
 ### Basic Sandbox Operations
 
@@ -157,7 +165,7 @@ OpenSandbox integrates various Coding Agents, including Claude Code, Google Gemi
 
 For more details, please refer to [examples](examples/README.md) and the README files in each example directory.
 
-## Directory Structure
+## Project Structure
 
 ```bash
 OpenSandbox/
@@ -187,15 +195,24 @@ OpenSandbox/
 - [specs/README.md](specs/README.md) - Contains OpenAPI definitions for sandbox lifecycle API and sandbox execution API
 - [server/README.md](server/README.md) - Contains sandbox server startup and configuration, currently supports Docker Runtime, will support Kubernetes Runtime in the future
 
----
-
 ## License
 
 This project is open source under the [Apache 2.0 License](LICENSE).
 
 You can use OpenSandbox for personal or commercial projects in compliance with the license terms.
 
----
+## Roadmap
+
+### SDK
+
+- [ ] **TypeScript SDK** - TypeScript/JavaScript client SDK for sandbox lifecycle management and command execution、file operations.
+- [ ] **Go SDK** - Go client SDK for sandbox lifecycle management and command execution、file operations.
+
+### Server Runtime
+
+- [ ] **OpenSandbox Kubernetes Runtime** - High-performance sandbox scheduling implementation
+- [ ] **kubernetes-sigs/agent-sandbox Support** - Integration with [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox)
+- [ ] **Declarative Network Isolation** - Network egress control with allow/deny rules for specific domains
 
 ## Contact and Discussion
 

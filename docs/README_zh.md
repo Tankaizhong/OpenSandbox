@@ -1,4 +1,16 @@
-# OpenSandbox
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="OpenSandbox logo" width="150" />
+
+  <h1>OpenSandbox</h1>
+
+[![GitHub stars](https://img.shields.io/github/stars/alibaba/OpenSandbox.svg?style=social)](https://github.com/alibaba/OpenSandbox)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alibaba/OpenSandbox)
+[![license](https://img.shields.io/github/license/alibaba/OpenSandbox.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![PyPI version](https://badge.fury.io/py/opensandbox.svg)](https://badge.fury.io/py/opensandbox)
+
+
+  <hr />
+</div>
 
 中文 | [English](../README.md)
 
@@ -6,10 +18,10 @@ OpenSandbox 是一个面向 AI 应用场景设计的「通用沙箱平台」，�
 
 ## 核心特性
 
-- **多语言 SDK**：提供 Python / Java / TypeScript（TODO） 等语言的客户端 SDK（`sdks/`）。
-- **沙箱协议**：所有沙箱都遵循同一套 OAS 接口规范（`specs/`）。你可以通过统一协议扩展自己的沙箱运行时。
-- **沙箱运行时**：支持本地运行（`server/`）和 Kubernetes 集群运行（TODO）。
-- **多种沙箱实现**：内置 Command、Filesystem（`components/execd/`）、Code Interpreter（`sandboxes/code-interpreter/`）、Browser Use、Coding Agent（Claude Code）等多种沙箱实现和例子（`examples/`）。
+- **多语言 SDK**：提供 Python、Java、TypeScript (Roadmap)、Go (Roadmap) 等语言的客户端 SDK。
+- **沙箱协议**：定义了沙箱生命周期管理 API 和沙箱执行 API。你可以通过这些沙箱协议扩展自己的沙箱运行时。
+- **沙箱运行时**：默认实现沙箱生命周期管理，支持 Docker、Kubernetes 等运行时，实现大规模分布式沙箱调度。
+- **沙箱环境**：内置 Command、Filesystem、Code Interpreter 实现。并提供 Coding Agent（Claude Code 等）、浏览器自动化（Chrome、Playwright）和桌面环境（VNC、VS Code）等示例。
 
 ## 使用示例
 
@@ -154,7 +166,7 @@ OpenSandbox 提供了丰富的示例来演示不同场景下的沙箱使用方�
 
 更多详细信息请参考 [examples](../examples/README.md) 和各示例目录下的 README 文件。
 
-## 目录结构
+## 项目结构
 
 ```bash
 OpenSandbox/
@@ -184,15 +196,25 @@ OpenSandbox/
 - [specs/README.md](../specs/README_zh.md) - 包含沙箱生命周期 API 和沙箱执行 API 的 OpenAPI 定义
 - [server/README.md](../server/README_zh.md) - 包含沙箱 Server 的启动和配置，目前支持 Docker Runtime，后续将支持 Kubernetes Runtime
 
----
-
 ## 许可证
 
 本项目采用 [Apache 2.0 License](../LICENSE) 开源。
 
 你可以在遵守许可条款的前提下，将 OpenSandbox 用于个人或商业项目。
 
----
+## Roadmap
+
+### SDK
+
+- [ ] **TypeScript SDK** - TypeScript/JavaScript 客户端 SDK，用于沙箱生命周期管理、命令执行和文件操作
+- [ ] **Go SDK** - Go 客户端 SDK，用于沙箱生命周期管理、命令执行和文件操作
+
+### Server Runtime
+
+- [ ] **自研 Kubernetes 沙箱调度器** - 高性能沙箱调度实现
+- [ ] **kubernetes-sigs/agent-sandbox 支持** - 集成 [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox) 沙箱调度能力
+- [ ] **声明式网络隔离** - 支持允许/禁止特定域名规则的网络 egress 访问控制
+- [ ] **沙箱路由器 Ingress** - Kubernetes 版本中的专用 ingress 组件（sandbox-router），用于将流量路由到沙箱
 
 ## 联系与讨论
 
