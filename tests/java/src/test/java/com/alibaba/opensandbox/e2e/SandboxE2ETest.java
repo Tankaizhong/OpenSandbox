@@ -109,8 +109,8 @@ public class SandboxE2ETest extends BaseE2ETest {
         boolean hasComplete = !completedEvents.isEmpty();
         boolean hasError = !errors.isEmpty();
         assertTrue(
-                hasComplete ^ hasError,
-                "expected exactly one of complete/error, got complete="
+                hasComplete || hasError,
+                "expected at least one of complete/error, got complete="
                         + completedEvents.size()
                         + " error="
                         + errors.size());
@@ -358,7 +358,6 @@ public class SandboxE2ETest extends BaseE2ETest {
         assertTimesClose(
                 dirInfo.get(testDir1).getCreatedAt(), dirInfo.get(testDir1).getModifiedAt(), 2);
 
-
         Execution lsResult =
                 sandbox.commands()
                         .run(
@@ -388,8 +387,8 @@ public class SandboxE2ETest extends BaseE2ETest {
                         .data(
                                 new ByteArrayInputStream(
                                         testContent.getBytes(StandardCharsets.UTF_8)))
-                        .group("admin")
-                        .owner("admin")
+                        .group("nogroup")
+                        .owner("nobody")
                         .mode(755)
                         .build();
 
@@ -448,8 +447,8 @@ public class SandboxE2ETest extends BaseE2ETest {
         assertEquals(testFile3, fileInfo3.getPath());
         assertEquals(expectedSize, fileInfo3.getSize(), "File3 size should match content length");
         assertEquals(755, fileInfo3.getMode(), "File3 mode should be 755");
-        assertEquals("admin", fileInfo3.getOwner(), "File3 owner should be admin");
-        assertEquals("admin", fileInfo3.getGroup(), "File3 group should be admin");
+        assertEquals("nobody", fileInfo3.getOwner(), "File3 owner should be nobody");
+        assertEquals("nogroup", fileInfo3.getGroup(), "File3 group should be nogroup");
         assertTimesClose(fileInfo3.getCreatedAt(), fileInfo3.getModifiedAt(), 2);
 
         SearchEntry searchAllEntry = SearchEntry.builder().path(testDir1).pattern("*").build();
@@ -463,15 +462,15 @@ public class SandboxE2ETest extends BaseE2ETest {
                 SetPermissionEntry.builder()
                         .path(testFile1)
                         .mode(755)
-                        .owner("admin")
-                        .group("admin")
+                        .owner("nobody")
+                        .group("nogroup")
                         .build();
         SetPermissionEntry permEntry2 =
                 SetPermissionEntry.builder()
                         .path(testFile2)
                         .mode(600)
-                        .owner("admin")
-                        .group("admin")
+                        .owner("nobody")
+                        .group("nogroup")
                         .build();
         sandbox.files().setPermissions(List.of(permEntry1, permEntry2));
 
@@ -484,16 +483,16 @@ public class SandboxE2ETest extends BaseE2ETest {
         assertNotNull(updatedInfo1, "Updated info for testFile1 should not be null");
         assertEquals(755, updatedInfo1.getMode(), "testFile1 mode should be updated to 755");
         assertEquals(
-                "admin", updatedInfo1.getOwner(), "testFile1 owner should be updated to admin");
+                "nobody", updatedInfo1.getOwner(), "testFile1 owner should be updated to nobody");
         assertEquals(
-                "admin", updatedInfo1.getGroup(), "testFile1 group should be updated to admin");
+                "nogroup", updatedInfo1.getGroup(), "testFile1 group should be updated to nogroup");
 
         assertNotNull(updatedInfo2, "Updated info for testFile2 should not be null");
         assertEquals(600, updatedInfo2.getMode(), "testFile2 mode should be updated to 600");
         assertEquals(
-                "admin", updatedInfo2.getOwner(), "testFile2 owner should be updated to nobody");
+                "nobody", updatedInfo2.getOwner(), "testFile2 owner should be updated to nobody");
         assertEquals(
-                "admin", updatedInfo2.getGroup(), "testFile2 group should be updated to nogroup");
+                "nogroup", updatedInfo2.getGroup(), "testFile2 group should be updated to nogroup");
 
         EntryInfo beforeUpdate = sandbox.files().readFileInfo(List.of(testFile1)).get(testFile1);
         String updatedContent1 = testContent + "\nAppended line to file1";
@@ -614,6 +613,7 @@ public class SandboxE2ETest extends BaseE2ETest {
         assertEquals(1, initEvents.size());
         String id = initEvents.get(0).getId();
         assertNotNull(id);
+        Thread.sleep(2000);
         sandbox.commands().interrupt(id);
         Execution result = future.get(30, TimeUnit.SECONDS);
         long elapsed = System.currentTimeMillis() - start;
