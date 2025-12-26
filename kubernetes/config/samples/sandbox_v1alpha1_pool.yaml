@@ -1,0 +1,49 @@
+apiVersion: sandbox.opensandbox.io/v1alpha1
+kind: Pool
+metadata:
+  labels:
+    app.kubernetes.io/name: sandbox-k8s
+    app.kubernetes.io/managed-by: kustomize
+  name: pool-sample
+  namespace: sandbox-k8s
+spec:
+  template:
+    metadata:
+      labels:
+        app: example
+    spec:
+      shareProcessNamespace: true
+      volumes:
+        - name: sandbox-storage
+          emptyDir: { }
+      containers:
+        - name: main
+          image: sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:latest
+          command:
+          - /opt/opensandbox/code-interpreter.sh
+          env:
+          - name: SANDBOX_MAIN_CONTAINER
+            value: main
+          volumeMounts:
+            - name: sandbox-storage
+              mountPath: /var/lib/sandbox
+        - command:
+          - /workspace/server
+          - -listen-addr=0.0.0.0:5758
+          - -enable-sidecar-mode=true
+          image: reg.docker.alibaba-inc.com/sandbox-k8s/task-executor:1.0.16
+          name: task-executor
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+          volumeMounts:
+            - name: sandbox-storage
+              mountPath: /var/lib/sandbox
+      tolerations:
+        - operator: "Exists"
+  capacitySpec:
+    bufferMax: 3
+    bufferMin: 1
+    poolMax: 5
+    poolMin: 0
