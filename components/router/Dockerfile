@@ -16,13 +16,21 @@ FROM golang:1.24.0 AS builder
 
 WORKDIR /build
 
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+
 COPY go.mod go.sum ./
 
 RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o /build/router ./main.go
+RUN CGO_ENABLED=0 go build \
+    -ldflags "-X 'github.com/alibaba/opensandbox/router/version.Version=${VERSION}' \
+              -X 'github.com/alibaba/opensandbox/router/version.BuildTime=${BUILD_TIME}' \
+              -X 'github.com/alibaba/opensandbox/router/version.GitCommit=${GIT_COMMIT}'" \
+    -o /build/router ./main.go
 
 FROM alpine:latest
 
