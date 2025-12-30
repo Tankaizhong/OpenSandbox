@@ -132,6 +132,7 @@ func (c *CodeInterpretingController) ListContexts() {
 			model.ErrorCodeRuntimeError,
 			err.Error(),
 		)
+		return
 	}
 
 	c.RespondSuccess(contexts)
@@ -156,6 +157,7 @@ func (c *CodeInterpretingController) DeleteContextsByLanguage() {
 			model.ErrorCodeRuntimeError,
 			fmt.Sprintf("error deleting code context %s. %v", language, err),
 		)
+		return
 	}
 
 	c.RespondSuccess(nil)
@@ -181,14 +183,17 @@ func (c *CodeInterpretingController) DeleteContext() {
 				model.ErrorCodeContextNotFound,
 				fmt.Sprintf("context %s not found", contextID),
 			)
+			return
 		} else {
 			c.RespondError(
 				http.StatusInternalServerError,
 				model.ErrorCodeRuntimeError,
 				fmt.Sprintf("error deleting code context %s. %v", contextID, err),
 			)
+			return
 		}
 	}
+
 	c.RespondSuccess(nil)
 }
 
