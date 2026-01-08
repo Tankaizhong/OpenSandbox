@@ -359,7 +359,7 @@ paths:
         Foreground commands should be consumed via SSE; this endpoint is intended for
         polling logs of background commands. Supports incremental reads similar to a file seek:
         pass a starting line via query to fetch output after that line and receive the latest
-        line index for the next poll. When no starting line is provided, the full logs are returned.
+        tail cursor for the next poll. When no starting line is provided, the full logs are returned.
         Response body is plain text so it can be rendered directly in browsers; the latest line index
         is provided via response header `EXECD-COMMANDS-TAIL-CURSOR` for subsequent incremental requests.
       operationId: getBackgroundCommandLogs

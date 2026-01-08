@@ -87,7 +87,7 @@ func TestGetCommandStatus_Running(t *testing.T) {
 	t.Log(status)
 }
 
-func TestGetCommandOutput_Completed(t *testing.T) {
+func TestSeekBackgroundCommandOutput_Completed(t *testing.T) {
 	c := NewController("", "")
 
 	tmpDir := t.TempDir()

@@ -179,6 +179,8 @@ func (c *Controller) runBackgroundCommand(_ context.Context, request *ExecuteCod
 	cmd.Stdin = os.NewFile(uintptr(syscall.Stdin), os.DevNull)
 
 	safego.Go(func() {
+		defer pipe.Close()
+
 		err := cmd.Start()
 		kernel := &commandKernel{
 			pid:          -1,
