@@ -29,7 +29,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 
-	"github.com/alibaba/opensandbox/router/pkg/flag"
+	"github.com/alibaba/opensandbox/ingress/pkg/flag"
 )
 
 type Proxy struct {

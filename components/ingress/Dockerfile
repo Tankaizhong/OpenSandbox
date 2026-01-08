@@ -27,13 +27,13 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-X 'github.com/alibaba/opensandbox/router/version.Version=${VERSION}' \
-              -X 'github.com/alibaba/opensandbox/router/version.BuildTime=${BUILD_TIME}' \
-              -X 'github.com/alibaba/opensandbox/router/version.GitCommit=${GIT_COMMIT}'" \
-    -o /build/router ./main.go
+    -ldflags "-X 'github.com/alibaba/opensandbox/ingress/version.Version=${VERSION}' \
+              -X 'github.com/alibaba/opensandbox/ingress/version.BuildTime=${BUILD_TIME}' \
+              -X 'github.com/alibaba/opensandbox/ingress/version.GitCommit=${GIT_COMMIT}'" \
+    -o /build/ingress ./main.go
 
 FROM alpine:latest
 
-COPY --from=builder /build/router .
+COPY --from=builder /build/ingress .
 
-ENTRYPOINT ["./router"]
+ENTRYPOINT ["./ingress"]

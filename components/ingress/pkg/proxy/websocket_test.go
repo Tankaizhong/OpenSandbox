@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibaba/opensandbox/router/pkg/flag"
+	"github.com/alibaba/opensandbox/ingress/pkg/flag"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"

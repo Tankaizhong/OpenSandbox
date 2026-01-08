@@ -28,9 +28,9 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 
-	"github.com/alibaba/opensandbox/router/pkg/flag"
-	"github.com/alibaba/opensandbox/router/pkg/proxy"
-	"github.com/alibaba/opensandbox/router/version"
+	"github.com/alibaba/opensandbox/ingress/pkg/flag"
+	"github.com/alibaba/opensandbox/ingress/pkg/proxy"
+	"github.com/alibaba/opensandbox/ingress/version"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 
 	cfg := injection.ParseAndGetRESTConfigOrDie()
 	cfg.ContentType = runtime.ContentTypeProtobuf
-	cfg.UserAgent = "opensandbox-router/" + version.GitCommit
+	cfg.UserAgent = "opensandbox-ingress/" + version.GitCommit
 
 	ctx := injection.WithNamespaceScope(signals.NewContext(), flag.Namespace)
 	ctx = withLogger(ctx, flag.LogLevel)
@@ -66,6 +66,6 @@ func withLogger(ctx context.Context, logLevel string) context.Context {
 		log.Panicf("failed parsing log level from %q, %v\n", logLevel, err)
 	}
 
-	logger := logging.FromContext(ctx).Named("opensandbox.router")
+	logger := logging.FromContext(ctx).Named("opensandbox.ingress")
 	return proxy.WithLogger(ctx, logger)
 }

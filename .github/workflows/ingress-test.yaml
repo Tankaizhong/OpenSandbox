@@ -1,10 +1,10 @@
-name: Router Tests
+name: Ingress Tests
 
 on:
   pull_request:
     branches: [ main ]
     paths:
-      - 'components/router/**'
+      - 'components/ingress/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -34,5 +34,5 @@ jobs:
 
       - name: Run tests
         run: |
-          cd components/router
+          cd components/ingress
           make test

@@ -1,4 +1,4 @@
-module github.com/alibaba/opensandbox/router
+module github.com/alibaba/opensandbox/ingress
 
 go 1.24.0
 

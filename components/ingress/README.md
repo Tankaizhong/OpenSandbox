@@ -1,4 +1,4 @@
-# OpenSandbox Router
+# OpenSandbox Ingress
 
 English | [中文](README_zh.md)
 
@@ -19,7 +19,7 @@ Endpoints: `/` (proxy), `/status.ok` (health).
 
 ## Build
 ```bash
-cd components/router
+cd components/ingress
 make build
 # override build metadata if needed
 VERSION=1.2.3 GIT_COMMIT=$(git rev-parse HEAD) BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") make build
@@ -32,13 +32,13 @@ docker build \
   --build-arg VERSION=$(git describe --tags --always --dirty) \
   --build-arg GIT_COMMIT=$(git rev-parse HEAD) \
   --build-arg BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  -t opensandbox/router:local .
+  -t opensandbox/ingress:local .
 ```
 
 ## Multi-arch Publish Script
 `build.sh` uses buildx to build/push linux/amd64 and linux/arm64:
 ```bash
-cd components/router
+cd components/ingress
 TAG=local VERSION=1.2.3 GIT_COMMIT=abc BUILD_TIME=2025-01-01T00:00:00Z bash build.sh
 ```
 
@@ -53,7 +53,7 @@ TAG=local VERSION=1.2.3 GIT_COMMIT=abc BUILD_TIME=2025-01-01T00:00:00Z bash buil
 
 ## Development & Tests
 ```bash
-cd components/router
+cd components/ingress
 go test ./...
 ```
 Key code:

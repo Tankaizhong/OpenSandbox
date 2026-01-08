@@ -1,4 +1,4 @@
-# OpenSandbox Router
+# OpenSandbox Ingress
 
 ## 功能概览
 - 基于 Kubernetes Pod 标签的 HTTP / WebSocket 反向代理，按 `OPEN-SANDBOX-INGRESS` 或 Host 解析目标沙箱。
@@ -23,7 +23,7 @@ go run main.go \
 ## 构建与发布
 ### 本地二进制
 ```bash
-cd components/router
+cd components/ingress
 make build
 # 可覆盖版本信息
 VERSION=1.2.3 GIT_COMMIT=$(git rev-parse HEAD) BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") make build
@@ -36,13 +36,13 @@ docker build \
   --build-arg VERSION=$(git describe --tags --always --dirty) \
   --build-arg GIT_COMMIT=$(git rev-parse HEAD) \
   --build-arg BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  -t opensandbox/router:local .
+  -t opensandbox/ingress:local .
 ```
 
 ### 多架构推送脚本
 `build.sh` 使用 buildx 构建并推送 amd64/arm64，多标签支持，传入同名环境变量即可覆盖：
 ```bash
-cd components/router
+cd components/ingress
 TAG=local VERSION=1.2.3 GIT_COMMIT=abc BUILD_TIME=2025-01-01T00:00:00Z bash build.sh
 ```
 
@@ -52,7 +52,7 @@ TAG=local VERSION=1.2.3 GIT_COMMIT=abc BUILD_TIME=2025-01-01T00:00:00Z bash buil
 
 ## 开发与测试
 ```bash
-cd components/router
+cd components/ingress
 go test ./...
 ```
 主要代码位置：

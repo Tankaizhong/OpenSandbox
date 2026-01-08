@@ -34,7 +34,7 @@ var (
 // EchoVersion is used to echo current binary build info for diagnosing
 func EchoVersion() {
 	fmt.Println("=====================================================")
-	fmt.Println(" OpenSandbox Router")
+	fmt.Println(" OpenSandbox Ingress")
 	fmt.Println("-----------------------------------------------------")
 	fmt.Printf(" Version     : %s\n", Version)
 	fmt.Printf(" Git Commit  : %s\n", GitCommit)

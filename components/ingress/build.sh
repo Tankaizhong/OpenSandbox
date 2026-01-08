@@ -20,17 +20,17 @@ VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "d
 GIT_COMMIT=${GIT_COMMIT:-$(git rev-parse HEAD 2>/dev/null || echo "unknown")}
 BUILD_TIME=${BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}
 
-docker buildx rm router-builder || true
+docker buildx rm ingress-builder || true
 
-docker buildx create --use --name router-builder
+docker buildx create --use --name ingress-builder
 
 docker buildx inspect --bootstrap
 
 docker buildx ls
 
 docker buildx build \
-  -t opensandbox/router:${TAG} \
-  -t sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/router:${TAG} \
+  -t opensandbox/ingress:${TAG} \
+  -t sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/ingress:${TAG} \
   --build-arg VERSION="${VERSION}" \
   --build-arg GIT_COMMIT="${GIT_COMMIT}" \
   --build-arg BUILD_TIME="${BUILD_TIME}" \

@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibaba/opensandbox/router/pkg/flag"
+	"github.com/alibaba/opensandbox/ingress/pkg/flag"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"

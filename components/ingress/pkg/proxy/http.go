@@ -52,7 +52,7 @@ func (hp *HTTPProxy) newReverseProxy(targetHost string) (*httputil.ReverseProxy,
 		req.Header.Del(SandboxIngress)
 	}
 	proxy.ModifyResponse = func(response *http.Response) error {
-		response.Header.Add(ReverseProxyServerPowerBy, "opensandbox-router")
+		response.Header.Add(ReverseProxyServerPowerBy, "OpenSandbox-ingress")
 		return nil
 	}
 	return proxy, nil
