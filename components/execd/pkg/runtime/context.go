@@ -171,6 +171,7 @@ func (c *Controller) createDefaultLanguageContext(language Language) error {
 	c.jupyterClientMap[session.ID] = &jupyterKernel{
 		kernelID: session.Kernel.ID,
 		client:   client,
+		language: language,
 	}
 	return nil
 }
