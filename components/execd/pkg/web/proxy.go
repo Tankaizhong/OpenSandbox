@@ -60,6 +60,8 @@ func ProxyMiddleware() gin.HandlerFunc {
 		isWebSocket := strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
 
 		proxy := httputil.NewSingleHostReverseProxy(target)
+		// Flush SSE chunks promptly; a small interval avoids buffering breaks chunked streams.
+		proxy.FlushInterval = 200 * time.Millisecond
 
 		proxy.Director = func(req *http.Request) {
 			req.URL.Scheme = "http"
