@@ -50,8 +50,8 @@ try {
   const execution = await sandbox.commands.run("echo 'Hello Sandbox!'");
   console.log(execution.logs.stdout[0]?.text);
 
-  // 可选但推荐：使用完成后终止远程实例
   await sandbox.kill();
+  await sandbox.close();
 } catch (err) {
   if (err instanceof SandboxException) {
     console.error(`沙箱错误: [${err.error.code}] ${err.error.message ?? ""}`);
@@ -165,6 +165,10 @@ console.log(list.items.map((s) => s.id));
 
 `ConnectionConfig` 类管理与 API 服务器的连接设置。
 
+运行环境说明：
+- 浏览器环境下，SDK 使用全局 `fetch`。
+- Node.js 环境下，每个 `Sandbox` 和 `SandboxManager` 都会通过 `ConnectionConfig.withTransportIfMissing()` 创建独立的 keep-alive 池（基于 `undici`）。完成交互后请调用 `sandbox.close()` 或 `manager.close()` 来释放对应的 agent，以避免遗留连接，这与 Python SDK 的 transport 生命周期一致。
+
 | 参数 | 描述 | 默认值 | 环境变量 |
 | --- | --- | --- | --- |
 | `apiKey` | 用于认证的 API Key | 可选 | `OPEN_SANDBOX_API_KEY` |
@@ -209,6 +213,10 @@ const config2 = new ConnectionConfig({
 | `healthCheck` | 自定义就绪检查 | - |
 | `readyTimeoutSeconds` | 等待就绪最大时间 | 30 秒 |
 | `healthCheckPollingInterval` | 就绪轮询间隔（毫秒） | 200 ms |
+
+### 3. 资源清理
+
+在 Node.js 环境下，`Sandbox` 和 `SandboxManager` 会拥有各自的 HTTP agent，因此即使多个实例共享同一个 `ConnectionConfig` 也不会互相影响。SDK 会借助 `ConnectionConfig.withTransportIfMissing()` 复刻每个实例的 transport。完成使用后调用 `sandbox.close()` / `manager.close()` 来释放底层连接池；
 
 ## 浏览器注意事项
 

@@ -76,6 +76,7 @@ console.log(result.result[0]?.text);
 
 // 7. 清理远程实例（可选，但推荐）
 await sandbox.kill();
+await sandbox.close();
 ```
 
 ## 运行时配置
@@ -182,6 +183,6 @@ await ci.codes.run("import time\nfor i in range(5):\n    print(i)\n    time.slee
 
 ## 说明
 
-- **生命周期**：`CodeInterpreter` 基于既有的 `Sandbox` 实例进行包装，并复用其连接配置。
+- **生命周期**：`CodeInterpreter` 基于既有的 `Sandbox` 实例进行包装，并复用其连接配置。SDK 会通过 `ConnectionConfig.withTransportIfMissing()` 为每个实例复刻 Transport，完成交互后请调用 `sandbox.close()` 释放 Node.js 的 keep-alive agent，以避免资源泄漏。
 - **默认上下文**：`codes.run(..., { language })` 会使用语言默认 context（同语言的状态可跨次执行保持）。
 

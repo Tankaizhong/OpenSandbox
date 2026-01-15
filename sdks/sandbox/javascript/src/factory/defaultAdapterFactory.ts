@@ -51,7 +51,6 @@ export class DefaultAdapterFactory implements AdapterFactory {
     });
     const commands = new CommandsAdapter(execdClient, {
       baseUrl: opts.execdBaseUrl,
-      // Streaming calls (SSE) use a dedicated fetch, aligned with Kotlin/Python SDKs.
       fetch: opts.connectionConfig.sseFetch,
       headers: opts.connectionConfig.headers,
     });

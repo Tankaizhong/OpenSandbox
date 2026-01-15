@@ -52,6 +52,7 @@ try {
 
   // Optional but recommended: terminate the remote instance when you are done.
   await sandbox.kill();
+  await sandbox.close();
 } catch (err) {
   if (err instanceof SandboxException) {
     console.error(`Sandbox Error: [${err.error.code}] ${err.error.message ?? ""}`);
@@ -157,6 +158,7 @@ import { SandboxManager } from "@alibaba-group/opensandbox";
 const manager = SandboxManager.create({ connectionConfig: config });
 const list = await manager.listSandboxInfos({ states: ["Running"], pageSize: 10 });
 console.log(list.items.map((s) => s.id));
+await manager.close();
 ```
 
 ## Configuration
@@ -164,6 +166,10 @@ console.log(list.items.map((s) => s.id));
 ### 1. Connection Configuration
 
 The `ConnectionConfig` class manages API server connection settings.
+
+Runtime notes:
+- In browsers, the SDK uses the global `fetch` implementation.
+- In Node.js, every `Sandbox` and `SandboxManager` clones the base `ConnectionConfig` via `withTransportIfMissing()`, so each instance gets an isolated `undici` keep-alive pool. Call `sandbox.close()` or `manager.close()` when you are done so the SDK can release the associated agent.
 
 | Parameter | Description | Default | Environment Variable |
 | --- | --- | --- | --- |
@@ -209,6 +215,13 @@ const config2 = new ConnectionConfig({
 | `healthCheck` | Custom readiness check | - |
 | `readyTimeoutSeconds` | Max time to wait for readiness | 30 seconds |
 | `healthCheckPollingInterval` | Poll interval while waiting (milliseconds) | 200 ms |
+
+### 3. Resource cleanup
+
+Both `Sandbox` and `SandboxManager` own a scoped HTTP agent when running on Node.js
+so you can safely reuse the same `ConnectionConfig`. Once you are finished interacting
+with the sandbox or administration APIs, call `sandbox.close()` / `manager.close()` to
+release the underlying agent. 
 
 ## Browser Notes
 

@@ -38,19 +38,31 @@ export interface SandboxFilter {
  */
 export class SandboxManager {
   private readonly sandboxes: Sandboxes;
+  private readonly connectionConfig: ConnectionConfig;
 
-  private constructor(opts: { sandboxes: Sandboxes }) {
+  private constructor(opts: { sandboxes: Sandboxes; connectionConfig: ConnectionConfig }) {
     this.sandboxes = opts.sandboxes;
+    this.connectionConfig = opts.connectionConfig;
   }
 
   static create(opts: SandboxManagerOptions = {}): SandboxManager {
-    const connectionConfig = opts.connectionConfig instanceof ConnectionConfig
+    const baseConnectionConfig = opts.connectionConfig instanceof ConnectionConfig
       ? opts.connectionConfig
       : new ConnectionConfig(opts.connectionConfig);
+    const connectionConfig = baseConnectionConfig.withTransportIfMissing();
     const lifecycleBaseUrl = connectionConfig.getBaseUrl();
     const adapterFactory = opts.adapterFactory ?? createDefaultAdapterFactory();
-    const { sandboxes } = adapterFactory.createLifecycleStack({ connectionConfig, lifecycleBaseUrl });
-    return new SandboxManager({ sandboxes });
+    let sandboxes: Sandboxes;
+    try {
+      sandboxes = adapterFactory.createLifecycleStack({
+        connectionConfig,
+        lifecycleBaseUrl,
+      }).sandboxes;
+    } catch (err) {
+      void connectionConfig.closeTransport().catch(() => undefined);
+      throw err;
+    }
+    return new SandboxManager({ sandboxes, connectionConfig });
   }
 
   listSandboxInfos(filter: SandboxFilter = {}): Promise<ListSandboxesResponse> {
@@ -87,12 +99,13 @@ export class SandboxManager {
   }
 
   /**
-   * No-op for now (fetch-based implementation doesn't own a pooled transport).
+   * Release the HTTP agent resources allocated for this manager instance.
    *
-   * This method exists so callers can consistently release resources when using
-   * a custom {@link AdapterFactory} implementation.
+   * Each manager clone owns a scoped `ConnectionConfig` clone.
+   *
+   * This mirrors the Python SDK's default transport lifecycle.
    */
   async close(): Promise<void> {
-    // no-op
+    await this.connectionConfig.closeTransport();
   }
 }

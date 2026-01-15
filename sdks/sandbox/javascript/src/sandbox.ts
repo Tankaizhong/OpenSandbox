@@ -173,16 +173,24 @@ export class Sandbox {
   }
 
   static async create(opts: SandboxCreateOptions): Promise<Sandbox> {
-    const connectionConfig =
+    const baseConnectionConfig =
       opts.connectionConfig instanceof ConnectionConfig
         ? opts.connectionConfig
         : new ConnectionConfig(opts.connectionConfig);
+    const connectionConfig = baseConnectionConfig.withTransportIfMissing();
     const lifecycleBaseUrl = connectionConfig.getBaseUrl();
     const adapterFactory = opts.adapterFactory ?? createDefaultAdapterFactory();
-    const { sandboxes } = adapterFactory.createLifecycleStack({
-      connectionConfig,
-      lifecycleBaseUrl,
-    });
+
+    let sandboxes: Sandboxes;
+    try {
+      sandboxes = adapterFactory.createLifecycleStack({
+        connectionConfig,
+        lifecycleBaseUrl,
+      }).sandboxes;
+    } catch (err) {
+      await connectionConfig.closeTransport();
+      throw err;
+    }
 
     const req: CreateSandboxRequest = {
       image: toImageSpec(opts.image),
@@ -244,58 +252,72 @@ export class Sandbox {
           // Ignore cleanup failure; surface original error.
         }
       }
+      await connectionConfig.closeTransport();
       throw err;
     }
   }
 
   static async connect(opts: SandboxConnectOptions): Promise<Sandbox> {
-    const connectionConfig =
+    const baseConnectionConfig =
       opts.connectionConfig instanceof ConnectionConfig
         ? opts.connectionConfig
         : new ConnectionConfig(opts.connectionConfig);
+    const connectionConfig = baseConnectionConfig.withTransportIfMissing();
     const adapterFactory = opts.adapterFactory ?? createDefaultAdapterFactory();
     const lifecycleBaseUrl = connectionConfig.getBaseUrl();
-    const { sandboxes } = adapterFactory.createLifecycleStack({
-      connectionConfig,
-      lifecycleBaseUrl,
-    });
 
-    const endpoint = await sandboxes.getSandboxEndpoint(
-      opts.sandboxId,
-      DEFAULT_EXECD_PORT
-    );
-    const execdBaseUrl = `${connectionConfig.protocol}://${endpoint.endpoint}`;
-    const { commands, files, health, metrics } =
-      adapterFactory.createExecdStack({
+    let sandboxes: Sandboxes;
+    try {
+      sandboxes = adapterFactory.createLifecycleStack({
         connectionConfig,
-        execdBaseUrl,
-      });
-
-    const sbx = new Sandbox({
-      id: opts.sandboxId,
-      connectionConfig,
-      adapterFactory,
-      lifecycleBaseUrl,
-      execdBaseUrl,
-      sandboxes,
-      commands,
-      files,
-      health,
-      metrics,
-    });
-
-    if (!(opts.skipHealthCheck ?? false)) {
-      await sbx.waitUntilReady({
-        readyTimeoutSeconds:
-          opts.readyTimeoutSeconds ?? DEFAULT_READY_TIMEOUT_SECONDS,
-        pollingIntervalMillis:
-          opts.healthCheckPollingInterval ??
-          DEFAULT_HEALTH_CHECK_POLLING_INTERVAL_MILLIS,
-        healthCheck: opts.healthCheck,
-      });
+        lifecycleBaseUrl,
+      }).sandboxes;
+    } catch (err) {
+      await connectionConfig.closeTransport();
+      throw err;
     }
 
-    return sbx;
+    try {
+      const endpoint = await sandboxes.getSandboxEndpoint(
+        opts.sandboxId,
+        DEFAULT_EXECD_PORT
+      );
+      const execdBaseUrl = `${connectionConfig.protocol}://${endpoint.endpoint}`;
+      const { commands, files, health, metrics } =
+        adapterFactory.createExecdStack({
+          connectionConfig,
+          execdBaseUrl,
+        });
+
+      const sbx = new Sandbox({
+        id: opts.sandboxId,
+        connectionConfig,
+        adapterFactory,
+        lifecycleBaseUrl,
+        execdBaseUrl,
+        sandboxes,
+        commands,
+        files,
+        health,
+        metrics,
+      });
+
+      if (!(opts.skipHealthCheck ?? false)) {
+        await sbx.waitUntilReady({
+          readyTimeoutSeconds:
+            opts.readyTimeoutSeconds ?? DEFAULT_READY_TIMEOUT_SECONDS,
+          pollingIntervalMillis:
+            opts.healthCheckPollingInterval ??
+            DEFAULT_HEALTH_CHECK_POLLING_INTERVAL_MILLIS,
+          healthCheck: opts.healthCheck,
+        });
+      }
+
+      return sbx;
+    } catch (err) {
+      await connectionConfig.closeTransport();
+      throw err;
+    }
   }
 
   async getInfo(): Promise<SandboxInfo> {
@@ -346,22 +368,39 @@ export class Sandbox {
    * Resume a paused sandbox by id, then connect to its execd endpoint.
    */
   static async resume(opts: SandboxConnectOptions): Promise<Sandbox> {
-    const connectionConfig =
+    const baseConnectionConfig =
       opts.connectionConfig instanceof ConnectionConfig
         ? opts.connectionConfig
         : new ConnectionConfig(opts.connectionConfig);
     const adapterFactory = opts.adapterFactory ?? createDefaultAdapterFactory();
-    const lifecycleBaseUrl = connectionConfig.getBaseUrl();
-    const { sandboxes } = adapterFactory.createLifecycleStack({
-      connectionConfig,
-      lifecycleBaseUrl,
-    });
-    await sandboxes.resumeSandbox(opts.sandboxId);
-    return await Sandbox.connect({ ...opts, connectionConfig, adapterFactory });
+    const resumeConnectionConfig = baseConnectionConfig.withTransportIfMissing();
+    const lifecycleBaseUrl = resumeConnectionConfig.getBaseUrl();
+
+    let sandboxes: Sandboxes;
+    try {
+      sandboxes = adapterFactory.createLifecycleStack({
+        connectionConfig: resumeConnectionConfig,
+        lifecycleBaseUrl,
+      }).sandboxes;
+      await sandboxes.resumeSandbox(opts.sandboxId);
+    } catch (err) {
+      await resumeConnectionConfig.closeTransport();
+      throw err;
+    }
+
+    await resumeConnectionConfig.closeTransport();
+    return await Sandbox.connect({ ...opts, connectionConfig: baseConnectionConfig, adapterFactory });
   }
 
   async kill(): Promise<void> {
     await this.sandboxes.deleteSandbox(this.id);
+  }
+
+  /**
+   * Release any client-side resources (e.g. Node.js HTTP agents) owned by this Sandbox instance.
+   */
+  async close(): Promise<void> {
+    await this.connectionConfig.closeTransport();
   }
 
   /**
