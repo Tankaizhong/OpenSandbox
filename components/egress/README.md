@@ -34,30 +34,26 @@ The egress control is implemented as a **Sidecar** that shares the network names
 
 ## Configuration
 
-The sidecar is configured via the `OPENSANDBOX_NETWORK_POLICY` environment variable, containing a JSON object.
+- Starts in allow-all mode by default.
+- Use the built-in HTTP API to push/update policy; empty body clears (allow-all).
+- Optional token auth to restrict calls to the platform:
+  - Set `OPENSANDBOX_EGRESS_TOKEN` in the sidecar container.
+  - Callers must send header `OPENSANDBOX-EGRESS-AUTH: <token>`.
+  - If token is not set, the endpoint stays open (not recommended for shared environments).
 
-### Environment Variable: `OPENSANDBOX_NETWORK_POLICY`
+### Runtime HTTP API
 
-```json
-{
-  "default_action": "deny",
-  "egress": [
-    {
-      "action": "allow",
-      "target": "api.github.com"
-    },
-    {
-      "action": "allow",
-      "target": "*.google.com"
-    }
-  ]
-}
+- Default listen address: `:18080` (override with `OPENSANDBOX_EGRESS_HTTP_ADDR`).
+- Endpoints:
+  - `GET /policy` — returns the current policy (`null` when allow-all).
+  - `POST /policy` — replaces the policy. Empty body clears restrictions (allow-all).
+
+Example:
+
+```bash
+curl -XPOST http://localhost:18080/policy \
+  -d '{"default_action":"deny","egress":[{"action":"allow","target":"pypi.org"}]}'
 ```
-
-- **default_action**: `allow` or `deny` (default: `deny`).
-- **egress**: List of rules.
-    - **action**: `allow` or `deny`.
-    - **target**: FQDN (e.g., `example.com`) or Wildcard (e.g., `*.example.com`).
 
 ## Build & Run
 
@@ -80,11 +76,18 @@ To test the sidecar with a sandbox application:
     ```bash
     docker run -d --name sandbox-egress \
       --cap-add=NET_ADMIN \
-      -e OPENSANDBOX_NETWORK_POLICY='{"default_action":"deny","egress":[{"action":"allow","target":"google.com"}]}' \
       opensandbox/egress:local
     ```
 
     *Note: `CAP_NET_ADMIN` is required for `iptables` redirection.*
+
+    After start, push policy via HTTP (empty body keeps allow-all):
+
+    ```bash
+    curl -XPOST http://11.167.84.130:18080/policy \
+      -H "OPENSANDBOX-EGRESS-AUTH: $OPENSANDBOX_EGRESS_TOKEN" \
+      -d '{"default_action":"deny","egress":[{"action":"allow","target":"*.baidu.com"}]}'
+    ```
 
 2.  **Start Application** (shares sidecar's network):
 

@@ -23,6 +23,7 @@ import (
 
 	"github.com/alibaba/opensandbox/egress/pkg/dnsproxy"
 	"github.com/alibaba/opensandbox/egress/pkg/iptables"
+	"github.com/alibaba/opensandbox/egress/pkg/policy"
 )
 
 // Linux MVP: DNS proxy + iptables REDIRECT. No nftables/full isolation yet.
@@ -30,19 +31,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	policy, err := dnsproxy.LoadPolicyFromEnv()
-	if err != nil {
-		log.Fatalf("failed to parse network policy: %v", err)
-	}
-	if policy == nil {
-		log.Println("OPENSANDBOX_NETWORK_POLICY empty; skip egress control")
-		// Block here to avoid infinite container restart loop in Kubernetes
-		// when restartPolicy is Always. As a sidecar, we should keep running.
-		<-ctx.Done()
-		return
-	}
-
-	proxy, err := dnsproxy.New(policy, "")
+	// Start in allow-all mode; policy will be set via HTTP API.
+	proxy, err := dnsproxy.New(nil, "")
 	if err != nil {
 		log.Fatalf("failed to init dns proxy: %v", err)
 	}
@@ -55,6 +45,20 @@ func main() {
 		log.Fatalf("failed to install iptables redirect: %v", err)
 	}
 	log.Printf("iptables redirect configured (OUTPUT 53 -> 15353) with SO_MARK bypass for proxy upstream traffic")
+
+	httpAddr := os.Getenv(policy.EgressServerAddrEnv)
+	if httpAddr == "" {
+		httpAddr = policy.DefaultEgressServerAddr
+	}
+	token := os.Getenv(policy.EgressAuthTokenEnv)
+	if err := startPolicyServer(ctx, proxy, httpAddr, token); err != nil {
+		log.Fatalf("failed to start policy server: %v", err)
+	}
+	if token == "" {
+		log.Printf("policy server listening on %s (POST /policy); no token configured (%s)", httpAddr, policy.EgressAuthTokenEnv)
+	} else {
+		log.Printf("policy server listening on %s (POST /policy) with token auth", httpAddr)
+	}
 
 	<-ctx.Done()
 	log.Println("received shutdown signal; exiting")

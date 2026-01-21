@@ -20,6 +20,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -30,6 +31,7 @@ import (
 const defaultListenAddr = "127.0.0.1:15353"
 
 type Proxy struct {
+	policyMu   sync.RWMutex
 	policy     *policy.NetworkPolicy
 	listenAddr string
 	upstream   string // single upstream for MVP
@@ -45,11 +47,12 @@ func New(p *policy.NetworkPolicy, listenAddr string) (*Proxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Proxy{
-		policy:     p,
+	proxy := &Proxy{
 		listenAddr: listenAddr,
 		upstream:   upstream,
-	}, nil
+		policy:     p,
+	}
+	return proxy, nil
 }
 
 func (p *Proxy) Start(ctx context.Context) error {
@@ -94,7 +97,10 @@ func (p *Proxy) serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 	q := r.Question[0]
 	domain := q.Name
 
-	if p.policy != nil && p.policy.Evaluate(domain) == policy.ActionDeny {
+	p.policyMu.RLock()
+	currentPolicy := p.policy
+	p.policyMu.RUnlock()
+	if currentPolicy != nil && currentPolicy.Evaluate(domain) == policy.ActionDeny {
 		resp := new(dns.Msg)
 		resp.SetRcode(r, dns.RcodeNameError)
 		_ = w.WriteMsg(resp)
@@ -128,6 +134,21 @@ func (p *Proxy) UpstreamHost() string {
 		return ""
 	}
 	return host
+}
+
+// UpdatePolicy swaps the in-memory policy used by the proxy.
+// Passing nil switches the proxy into allow-all mode.
+func (p *Proxy) UpdatePolicy(newPolicy *policy.NetworkPolicy) {
+	p.policyMu.Lock()
+	p.policy = newPolicy
+	p.policyMu.Unlock()
+}
+
+// CurrentPolicy returns the policy currently enforced by the proxy.
+func (p *Proxy) CurrentPolicy() *policy.NetworkPolicy {
+	p.policyMu.RLock()
+	defer p.policyMu.RUnlock()
+	return p.policy
 }
 
 func discoverUpstream() (string, error) {
