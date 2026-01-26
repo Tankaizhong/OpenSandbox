@@ -33,8 +33,11 @@ def mock_k8s_client():
     """Provide mocked K8sClient"""
     client = MagicMock(spec=K8sClient)
     mock_custom_api = MagicMock()
+    mock_core_api = MagicMock()
     client.get_custom_objects_api.return_value = mock_custom_api
+    client.get_core_v1_api.return_value = mock_core_api
     client.custom_api = mock_custom_api
+    client.core_api = mock_core_api
     return client
 
 
@@ -46,6 +49,17 @@ def k8s_runtime_config():
         namespace="test-namespace",
         service_account="test-sa",
         workload_provider=PROVIDER_TYPE_BATCHSANDBOX,
+    )
+
+
+@pytest.fixture
+def agent_sandbox_runtime_config():
+    """Provide agent-sandbox runtime configuration"""
+    return KubernetesRuntimeConfig(
+        kubeconfig_path="/tmp/test-kubeconfig",
+        namespace="test-namespace",
+        service_account="test-sa",
+        workload_provider="agent-sandbox",
     )
 
 
@@ -198,6 +212,32 @@ def k8s_app_config(k8s_runtime_config):
             execd_image="ghcr.io/opensandbox/execd:test",
         ),
         kubernetes=k8s_runtime_config,
+    )
+
+
+@pytest.fixture
+def agent_sandbox_app_config(agent_sandbox_runtime_config):
+    """Provide complete app configuration (agent-sandbox type)"""
+    from src.config import AppConfig, RuntimeConfig, ServerConfig, AgentSandboxRuntimeConfig
+
+    return AppConfig(
+        server=ServerConfig(
+            host="0.0.0.0",
+            port=8080,
+            log_level="DEBUG",
+            api_key="test-api-key",
+        ),
+        runtime=RuntimeConfig(
+            type="agent-sandbox",
+            execd_image="ghcr.io/opensandbox/execd:test",
+        ),
+        kubernetes=agent_sandbox_runtime_config,
+        agent_sandbox=AgentSandboxRuntimeConfig(
+            template_file=None,
+            execd_mode="init",
+            shutdown_policy="Delete",
+            ingress_enabled=True,
+        ),
     )
 
 
