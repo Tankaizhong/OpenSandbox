@@ -68,9 +68,7 @@ func main() {
 
 	if nftMgr != nil {
 		if err := nftMgr.ApplyStatic(ctx, initialPolicy); err != nil {
-			log.Printf("nftables static apply failed; continuing with dns-only mode: %v", err)
-			enforcementMode = constants.PolicyDnsNft
-			nftMgr = nil
+			log.Fatalf("nftables static apply failed; please check logs): %v", err)
 		} else {
 			log.Printf("nftables static policy applied (table inet opensandbox)")
 		}

@@ -49,6 +49,7 @@ func TestApplyStatic_BuildsRuleset_DefaultDeny(t *testing.T) {
 	expectContains(t, rendered, "add chain inet opensandbox egress { type filter hook output priority 0; policy drop; }")
 	expectContains(t, rendered, "add rule inet opensandbox egress ct state established,related accept")
 	expectContains(t, rendered, "add rule inet opensandbox egress meta mark 0x1 accept")
+	expectContains(t, rendered, "add rule inet opensandbox egress oifname \"lo\" accept")
 	expectContains(t, rendered, "add rule inet opensandbox egress tcp dport 853 drop")
 	expectContains(t, rendered, "add rule inet opensandbox egress udp dport 853 drop")
 	expectContains(t, rendered, "add element inet opensandbox allow_v4 { 1.1.1.1, 2.2.0.0/16 }")
