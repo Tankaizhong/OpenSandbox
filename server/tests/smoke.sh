@@ -61,10 +61,24 @@ curl_json_status() {
 }
 
 wait_for_running() {
-  local deadline=$((SECONDS + 10))
+  local deadline=$((SECONDS + 30))
   while true; do
-    local resp
-    resp=$(curl_json "${BASE_API_URL}/sandboxes/${SANDBOX_ID}")
+    local resp http_status combined
+    combined=$(curl_json_status "${BASE_API_URL}/sandboxes/${SANDBOX_ID}")
+    http_status="${combined##*$'\n'}"
+    resp="${combined%$'\n'*}"
+
+    if [[ "${http_status}" == "404" ]]; then
+      error "Sandbox ${SANDBOX_ID} not found (404) — it may have failed during provisioning."
+      return 1
+    fi
+
+    if [[ "${http_status}" != "200" ]]; then
+      warn "GET sandbox ${SANDBOX_ID} returned HTTP ${http_status}, retrying..."
+      sleep 1
+      continue
+    fi
+
     local state
     state=$(python - <<'PY' "${resp}"
 import json,sys
@@ -81,7 +95,7 @@ PY
       return 1
     fi
     if (( SECONDS >= deadline )); then
-      error "Sandbox ${SANDBOX_ID} did not reach Running state within 10s (last state: ${state})."
+      error "Sandbox ${SANDBOX_ID} did not reach Running state within 30s (last state: ${state})."
       return 1
     fi
     sleep 1
