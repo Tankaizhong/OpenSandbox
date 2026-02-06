@@ -61,44 +61,77 @@ curl_json_status() {
 }
 
 wait_for_running() {
+  local sandbox_id="${1:-${SANDBOX_ID}}"
   local deadline=$((SECONDS + 30))
   while true; do
-    local resp http_status combined
-    combined=$(curl_json_status "${BASE_API_URL}/sandboxes/${SANDBOX_ID}")
-    http_status="${combined##*$'\n'}"
-    resp="${combined%$'\n'*}"
+    local result
+    result=$(curl -sSL -w "\n%{http_code}" \
+      "${BASE_API_URL}/sandboxes/${sandbox_id}" \
+      | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+lines = raw.rsplit("\n", 1)
+http_code = lines[-1].strip() if len(lines) > 1 else "000"
+body_text = lines[0] if len(lines) > 1 else ""
+if http_code == "404":
+    print("ERROR:not found (404) — may have failed during provisioning")
+elif http_code != "200":
+    print(f"RETRY:HTTP {http_code}")
+elif not body_text.strip():
+    print("RETRY:empty body")
+else:
+    try:
+        data = json.loads(body_text)
+        state = data.get("status", {}).get("state", "")
+        print(f"STATE:{state}")
+        print(body_text)
+    except json.JSONDecodeError as exc:
+        print(f"RETRY:invalid JSON: {exc}")
+') || true
 
-    if [[ "${http_status}" == "404" ]]; then
-      error "Sandbox ${SANDBOX_ID} not found (404) — it may have failed during provisioning."
-      return 1
-    fi
+    local tag="${result%%:*}"
+    local detail="${result#*:}"
 
-    if [[ "${http_status}" != "200" ]]; then
-      warn "GET sandbox ${SANDBOX_ID} returned HTTP ${http_status}, retrying..."
-      sleep 1
-      continue
-    fi
-
-    local state
-    state=$(python - <<'PY' "${resp}"
-import json,sys
-body=json.loads(sys.argv[1])
-print(body.get("status", {}).get("state", ""))
-PY
-)
-    if [[ "${state}" == "Running" ]]; then
-      printf '%s' "${resp}"
-      return 0
-    fi
-    if [[ "${state}" == "Failed" || "${state}" == "Terminated" ]]; then
-      error "Sandbox ${SANDBOX_ID} entered terminal state '${state}' before running."
-      return 1
-    fi
-    if (( SECONDS >= deadline )); then
-      error "Sandbox ${SANDBOX_ID} did not reach Running state within 30s (last state: ${state})."
-      return 1
-    fi
-    sleep 1
+    case "${tag}" in
+      ERROR)
+        error "Sandbox ${sandbox_id}: ${detail}"
+        return 1
+        ;;
+      RETRY)
+        warn "GET sandbox ${sandbox_id}: ${detail}, retrying..."
+        if (( SECONDS >= deadline )); then
+          error "Sandbox ${sandbox_id} did not reach Running within 30s."
+          return 1
+        fi
+        sleep 1
+        continue
+        ;;
+      STATE)
+        local state="${detail%%$'\n'*}"
+        local body="${detail#*$'\n'}"
+        if [[ "${state}" == "Running" ]]; then
+          printf '%s' "${body}"
+          return 0
+        fi
+        if [[ "${state}" == "Failed" || "${state}" == "Terminated" ]]; then
+          error "Sandbox ${sandbox_id} entered terminal state '${state}'."
+          return 1
+        fi
+        if (( SECONDS >= deadline )); then
+          error "Sandbox ${sandbox_id} did not reach Running within 30s (last: ${state})."
+          return 1
+        fi
+        sleep 1
+        ;;
+      *)
+        warn "GET sandbox ${sandbox_id}: unexpected output, retrying..."
+        if (( SECONDS >= deadline )); then
+          error "Sandbox ${sandbox_id} did not reach Running within 30s."
+          return 1
+        fi
+        sleep 1
+        ;;
+    esac
   done
 }
 
@@ -157,7 +190,7 @@ create_resp=$(curl_json \
   -d "${create_payload}" \
   "${BASE_API_URL}/sandboxes")
 
-SANDBOX_ID=$(python - <<'PY' "${create_resp}"
+SANDBOX_ID=$(python3 - <<'PY' "${create_resp}"
 import json,sys
 data=json.loads(sys.argv[1])
 sid=str(data.get("id","")).strip()
@@ -171,7 +204,7 @@ echo "Sandbox created: id=${SANDBOX_ID}"
 
 step "Wait for sandbox to reach Running"
 get_resp=$(wait_for_running)
-state=$(python - <<'PY' "${get_resp}"
+state=$(python3 - <<'PY' "${get_resp}"
 import json,sys
 body=json.loads(sys.argv[1])
 print(body.get("status",{}).get("state"))
@@ -179,7 +212,7 @@ PY
 )
 echo "Sandbox state: ${state}"
 
-python - <<'PY' "${get_resp}" "${SANDBOX_ID}"
+python3 - <<'PY' "${get_resp}" "${SANDBOX_ID}"
 import json,sys
 body=json.loads(sys.argv[1])
 expected=sys.argv[2]
@@ -195,7 +228,7 @@ list_resp=$(curl_json \
   --data-urlencode "pageSize=10" \
   "${BASE_API_URL}/sandboxes")
 
-python - <<'PY' "${list_resp}" "${SANDBOX_ID}"
+python3 - <<'PY' "${list_resp}" "${SANDBOX_ID}"
 import json,sys
 body=json.loads(sys.argv[1])
 sid=sys.argv[2]
@@ -206,7 +239,7 @@ PY
 echo "List check passed (found sandbox, pagination ok)"
 
 step "Renew sandbox expiration (+10m)"
-new_expiration=$(python - <<'PY'
+new_expiration=$(python3 - <<'PY'
 from datetime import datetime, timedelta, timezone
 print((datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat())
 PY
@@ -224,7 +257,7 @@ renew_resp=$(curl_json \
   -H 'Content-Type: application/json' \
   -d "${renew_payload}" \
   "${BASE_API_URL}/sandboxes/${SANDBOX_ID}/renew-expiration")
-renewed=$(python - <<'PY' "${renew_resp}"
+renewed=$(python3 - <<'PY' "${renew_resp}"
 import json,sys
 body=json.loads(sys.argv[1])
 print(body.get("expiresAt"))
@@ -234,7 +267,7 @@ echo "Expiration renewed to: ${renewed}"
 
 step "Request endpoint on port 8080"
 endpoint_resp=$(curl_json "${BASE_API_URL}/sandboxes/${SANDBOX_ID}/endpoints/8080")
-endpoint=$(python - <<'PY' "${endpoint_resp}"
+endpoint=$(python3 - <<'PY' "${endpoint_resp}"
 import json,sys
 body=json.loads(sys.argv[1])
 print(body.get("endpoint"))
@@ -274,7 +307,7 @@ if [[ "${status_code}" != "202" ]]; then
   warn "Skip egress sidecar smoke (status ${status_code}). Body: ${create_resp_body}"
   warn "Likely network_mode=host or egress.image unset."
 else
-  SANDBOX_ID=$(python - <<'PY' "${create_resp_body}"
+  SANDBOX_ID=$(python3 - <<'PY' "${create_resp_body}"
 import json,sys
 data=json.loads(sys.argv[1])
 sid=str(data.get("id","")).strip()
@@ -286,7 +319,7 @@ PY
   echo "Egress sandbox created: id=${SANDBOX_ID}"
 
   step "Wait for egress sandbox to reach Running"
-  wait_for_running >/dev/null
+  wait_for_running "${SANDBOX_ID}" >/dev/null
 
   step "Verify egress sidecar is running"
   SIDECAR_ID=$(docker ps -a --filter "label=opensandbox.io/egress-sidecar-for=${SANDBOX_ID}" -q | head -n1 || true)
@@ -336,7 +369,7 @@ if [[ "${volume_status}" != "202" ]]; then
   warn "Skip host volume smoke (status ${volume_status}). Body: ${volume_body}"
   warn "Likely host path validation or storage config issue."
 else
-  VOLUME_SANDBOX_ID=$(python - <<'PY' "${volume_body}"
+  VOLUME_SANDBOX_ID=$(python3 - <<'PY' "${volume_body}"
 import json,sys
 data=json.loads(sys.argv[1])
 sid=str(data.get("id","")).strip()
@@ -347,22 +380,17 @@ PY
 )
   echo "Volume sandbox created: id=${VOLUME_SANDBOX_ID}"
 
-  # Temporarily set SANDBOX_ID for wait_for_running
-  OLD_SANDBOX_ID="${SANDBOX_ID:-}"
-  SANDBOX_ID="${VOLUME_SANDBOX_ID}"
   step "Wait for volume sandbox to reach Running"
-  wait_for_running >/dev/null
-  SANDBOX_ID="${OLD_SANDBOX_ID}"
+  wait_for_running "${VOLUME_SANDBOX_ID}" >/dev/null
 
   # --- Verify the bind mount is actually effective ---
   # Resolve the Docker container ID from the sandbox API response.
-  container_id=$(curl_json "${BASE_API_URL}/sandboxes/${VOLUME_SANDBOX_ID}" \
-    | python - <<'PY'
-import json,sys
-body=json.loads(sys.stdin.read())
+  volume_sandbox_resp=$(curl_json "${BASE_API_URL}/sandboxes/${VOLUME_SANDBOX_ID}")
+  container_id=$(python3 -c '
+import json, sys
+body = json.loads(sys.argv[1])
 print(body.get("containerId", body.get("container_id", "")), end="")
-PY
-  )
+' "${volume_sandbox_resp}")
   # Fallback: if the API doesn't expose container_id, search by label.
   if [[ -z "${container_id}" ]]; then
     container_id=$(docker ps -qf "label=sandbox_id=${VOLUME_SANDBOX_ID}" | head -1)
@@ -412,7 +440,7 @@ create_resp_short=$(curl_json \
   -d "${create_payload_short}" \
   "${BASE_API_URL}/sandboxes")
 
-SANDBOX_ID=$(python - <<'PY' "${create_resp_short}"
+SANDBOX_ID=$(python3 - <<'PY' "${create_resp_short}"
 import json,sys
 data=json.loads(sys.argv[1])
 sid=str(data.get("id","")).strip()
@@ -425,8 +453,8 @@ PY
 echo "Short-lived sandbox created: id=${SANDBOX_ID}"
 
 step "Wait for short-lived sandbox to reach Running"
-get_resp_short=$(wait_for_running)
-state_short=$(python - <<'PY' "${get_resp_short}"
+get_resp_short=$(wait_for_running "${SANDBOX_ID}")
+state_short=$(python3 - <<'PY' "${get_resp_short}"
 import json,sys
 body=json.loads(sys.argv[1])
 print(body.get("status",{}).get("state"))
