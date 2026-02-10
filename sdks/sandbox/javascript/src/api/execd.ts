@@ -523,7 +523,7 @@ export interface components {
             background: boolean;
             /**
              * Format: int64
-             * @description Maximum allowed execution time in milliseconds before the command is forcefully terminated. If omitted, the server default is used.
+             * @description Maximum allowed execution time in milliseconds before the command is forcefully terminated by the server. If omitted, the server will not enforce any timeout.
              * @example 60000
              */
             timeout?: number;

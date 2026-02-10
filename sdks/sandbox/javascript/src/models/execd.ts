@@ -60,7 +60,7 @@ export interface RunCommandOpts {
   background?: boolean;
   /**
    * Maximum execution time in seconds; server will terminate the command when reached.
-   * Omit for server default.
+   * If omitted, the server will not enforce any timeout.
    */
   timeoutSeconds?: number;
 }

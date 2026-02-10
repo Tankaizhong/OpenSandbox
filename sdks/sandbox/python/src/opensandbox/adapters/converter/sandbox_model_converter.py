@@ -335,10 +335,15 @@ class SandboxModelConverter:
     @staticmethod
     def to_sandbox_endpoint(api_endpoint: Endpoint) -> SandboxEndpoint:
         """Convert API Endpoint to domain SandboxEndpoint."""
+        from opensandbox.api.lifecycle.types import Unset
         from opensandbox.models.sandboxes import SandboxEndpoint
 
+        headers: dict[str, str] = {}
+        if not isinstance(api_endpoint.headers, Unset):
+            headers = dict(api_endpoint.headers.additional_properties)
         return SandboxEndpoint(
             endpoint=api_endpoint.endpoint,
+            headers=headers,
         )
 
     @staticmethod

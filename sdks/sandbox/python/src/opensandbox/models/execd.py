@@ -232,7 +232,7 @@ class RunCommandOpts(BaseModel):
     )
     timeout: timedelta | None = Field(
         default=None,
-        description="Maximum execution time; server will terminate the command when reached. Omit for server default.",
+        description="Maximum execution time; server will terminate the command when reached. If omitted, the server will not enforce any timeout.",
     )
 
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)

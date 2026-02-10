@@ -24,7 +24,7 @@ import kotlin.time.Duration
  * @property command The command content to execute
  * @property background Whether to run in background (detached)
  * @property workingDirectory Directory to execute command in
- * @property timeout Maximum execution time; server will terminate when reached. Null for server default.
+ * @property timeout Maximum execution time; server will terminate when reached.  Null means the server will not enforce any timeout.
  * @property handlers Optional execution handlers
  */
 class RunCommandRequest private constructor(
@@ -64,7 +64,7 @@ class RunCommandRequest private constructor(
 
         /**
          * Maximum execution time; server will terminate the command when reached.
-         * Omit for server default.
+         * If omitted, the server will not enforce any timeout.
          */
         fun timeout(timeout: Duration?): Builder {
             this.timeout = timeout

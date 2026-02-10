@@ -54,15 +54,15 @@ class ExecutionConverter:
         if opts.background:
             background = opts.background
 
-        timeout_seconds = UNSET
+        timeout_milliseconds = UNSET
         if opts.timeout is not None:
-            timeout_seconds = int(opts.timeout.total_seconds() * 1000)
+            timeout_milliseconds = int(opts.timeout.total_seconds() * 1000)
 
         return ApiRunCommandRequest(
             command=command,
             background=background,
             cwd=cwd,  # Domain uses 'working_directory', API uses 'cwd'
-            timeout=timeout_seconds,
+            timeout=timeout_milliseconds,
             # Note: handlers are not included in API request as they are for local processing
         )
 

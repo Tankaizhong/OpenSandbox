@@ -287,6 +287,7 @@ export class Sandbox {
         adapterFactory.createExecdStack({
           connectionConfig,
           execdBaseUrl,
+          endpointHeaders: endpoint.headers,
         });
 
       const sbx = new Sandbox({
@@ -358,6 +359,7 @@ export class Sandbox {
         adapterFactory.createExecdStack({
           connectionConfig,
           execdBaseUrl,
+          endpointHeaders: endpoint.headers,
         });
 
       const sbx = new Sandbox({

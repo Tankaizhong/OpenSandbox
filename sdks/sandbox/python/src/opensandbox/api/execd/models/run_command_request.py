@@ -36,7 +36,7 @@ class RunCommandRequest:
         cwd (str | Unset): Working directory for command execution Example: /workspace.
         background (bool | Unset): Whether to run command in detached mode Default: False.
         timeout (int | Unset): Maximum allowed execution time in milliseconds before the command is forcefully
-            terminated. If omitted, the server default is used. Example: 60000.
+            terminated by the server. If omitted, the server will not enforce any timeout. Example: 60000.
     """
 
     command: str
