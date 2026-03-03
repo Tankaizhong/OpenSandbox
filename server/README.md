@@ -10,7 +10,7 @@ A production-grade, FastAPI-based service for managing the lifecycle of containe
 - **Lifecycle APIs**: Standardized REST interfaces for create, start, pause, resume, delete
 - **Pluggable runtimes**:
   - **Docker**: Production-ready
-  - **Kubernetes**: Supported (see `kubernetes/` for deployment)
+  - **Kubernetes**: Production-ready (see `kubernetes/` for deployment)
 - **Automatic expiration**: Configurable TTL with renewal
 - **Access control**: API Key authentication (`OPEN-SANDBOX-API-KEY`); can be disabled for local/dev
 - **Networking modes**:
@@ -33,7 +33,7 @@ A production-grade, FastAPI-based service for managing the lifecycle of containe
 - **Package Manager**: [uv](https://github.com/astral-sh/uv) (recommended) or pip
 - **Runtime Backend**:
   - Docker Engine 20.10+ (for Docker runtime)
-  - Kubernetes 1.21+ (for Kubernetes runtime)
+  - Kubernetes 1.22.4+ (for Kubernetes runtime)
 - **Operating System**: Linux, macOS, or Windows with WSL2
 
 ## Quick Start
@@ -113,6 +113,37 @@ Before you start the server, edit the configuration file to suit your environmen
    network_mode = "bridge"  # Isolated container networking
    ```
 
+**Docker Compose deployment (server runs in a container)**
+
+When `opensandbox-server` itself runs inside Docker Compose and manages sandboxes via
+mounted `/var/run/docker.sock`, configure a reachable host value for bridge-mode endpoint
+resolution:
+
+```toml
+[docker]
+network_mode = "bridge"
+host_ip = "host.docker.internal"  # or host LAN IP (for Linux: explicit host IP is recommended)
+```
+
+Why this matters:
+- In bridge mode, sandbox containers get internal Docker IPs.
+- External callers usually cannot reach those internal IPs directly.
+- `host_ip` lets endpoint resolution return host-reachable addresses.
+
+For SDK/API clients that cannot directly reach sandbox bridge addresses, request proxied
+endpoints through the server:
+
+```bash
+curl -H "OPEN-SANDBOX-API-KEY: your-secret-api-key" \
+  "http://localhost:8080/v1/sandboxes/<sandbox-id>/endpoints/44772?use_server_proxy=true"
+```
+
+The returned endpoint is rewritten to the server proxy route:
+- `<server-host>/sandboxes/<sandbox-id>/proxy/<port>`
+
+Reference runtime compose file:
+- `server/docker-compose.example.yaml`
+
 **Security hardening (applies to all Docker modes)**
    ```toml
    [docker]
@@ -126,6 +157,41 @@ Before you start the server, edit the configuration file to suit your environmen
    ```
    Further reading on Docker container security: https://docs.docker.com/engine/security/
 
+For common issues and solutions, see [Troubleshooting](TROUBLESHOOTING.md).
+
+**Ingress exposure (direct | gateway)**
+   ```toml
+   [ingress]
+   mode = "direct"  # docker runtime only supports direct
+   # gateway.address = "*.example.com"         # host only (domain or IP[:port]); scheme is not allowed
+   # gateway.route.mode = "wildcard"            # wildcard | uri | header
+   ```
+   - `mode=direct`: default; required when `runtime.type=docker` (client ↔ sandbox direct reachability, no L7 gateway).
+   - `mode=gateway`: configure external ingress.
+     - `gateway.address`: wildcard domain required when `gateway.route.mode=wildcard`; otherwise must be domain, IP, or IP:port. Do not include scheme; clients decide http/https.
+     - `gateway.route.mode`: `wildcard` (host-based wildcard), `uri` (path-prefix), `header` (header-based routing).
+     - Response format examples:
+       - `wildcard`: `<sandbox-id>-<port>.example.com/path/to/request`
+       - `uri`: `10.0.0.1:8000/<sandbox-id>/<port>/path/to/request`
+       - `header`: `gateway.example.com` with header `OpenSandbox-Ingress-To: <sandbox-id>-<port>`
+
+**Kubernetes runtime**
+   ```toml
+   [runtime]
+   type = "kubernetes"
+   execd_image = "opensandbox/execd:v1.0.5"
+
+   [kubernetes]
+   kubeconfig_path = "~/.kube/config"
+   namespace = "opensandbox"
+   workload_provider = "batchsandbox"   # or "agent-sandbox"
+   informer_enabled = true              # Beta: enable watch-based cache
+   informer_resync_seconds = 300        # Beta: full list interval
+   informer_watch_timeout_seconds = 60  # Beta: watch restart interval
+   ```
+   - Informer settings are **beta** and enabled by default to reduce API calls; set `informer_enabled = false` to turn off.
+   - Resync and watch timeouts control how often the cache refreshes; tune for your cluster API limits.
+
 ### Egress sidecar for `networkPolicy`
 
 - **Required when using `networkPolicy`**: Configure the sidecar image. The `egress.image` setting is mandatory when requests include `networkPolicy`:
@@ -135,7 +201,7 @@ Before you start the server, edit the configuration file to suit your environmen
    execd_image = "opensandbox/execd:v1.0.6"
    
    [egress]
-   image = "opensandbox/egress:v1.0.0"
+   image = "opensandbox/egress:v1.0.1"
    ```
 - Supported only in Docker bridge mode; requests with `networkPolicy` are rejected when `network_mode=host` or when `egress.image` is not configured.
 - Main container shares the sidecar netns and explicitly drops `NET_ADMIN`; the sidecar keeps `NET_ADMIN` to manage iptables.
@@ -395,7 +461,6 @@ curl -X DELETE \
 |----------|-------------|
 | `SANDBOX_CONFIG_PATH` | Override config file location |
 | `DOCKER_HOST` | Docker daemon URL (e.g., `unix:///var/run/docker.sock`) |
-| `DOCKER_API_TIMEOUT` | Docker client timeout in seconds (default: 180) |
 | `PENDING_FAILURE_TTL` | TTL for failed pending sandboxes in seconds (default: 3600) |
 
 ## Development

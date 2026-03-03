@@ -10,7 +10,7 @@
 - **生命周期管理**：标准化 REST API 覆盖创建、启动、暂停、恢复、删除
 - **可插拔运行时**：
   - **Docker**：已支持生产部署
-  - **Kubernetes**：配置占位，开发中
+  - **Kubernetes**：已支持生产部署
 - **自动过期**：可配置 TTL，支持续期
 - **访问控制**：API Key 认证（`OPEN-SANDBOX-API-KEY`），本地/开发可配置为空跳过
 - **网络模式**：
@@ -33,7 +33,7 @@
 - **包管理器**：[uv](https://github.com/astral-sh/uv)（推荐）或 pip
 - **运行时后端**：
   - Docker Engine 20.10+（使用 Docker 运行时）
-  - Kubernetes 1.21+（使用 Kubernetes 运行时，开发中）
+  - Kubernetes 1.22.4+（使用 Kubernetes 运行时）
 - **操作系统**：Linux、macOS 或带 WSL2 的 Windows
 
 ## 快速开始
@@ -114,6 +114,35 @@ opensandbox-server init-config ~/.sandbox.toml --example k8s-zh
    network_mode = "bridge"  # 容器隔离网络
    ```
 
+**Docker Compose 部署（server 本身运行在容器中）**
+
+当 `opensandbox-server` 运行在 Docker Compose 容器内，并通过挂载
+`/var/run/docker.sock` 管理沙箱时，需要为 bridge 模式端点解析配置一个可达的宿主地址：
+
+```toml
+[docker]
+network_mode = "bridge"
+host_ip = "host.docker.internal"  # 或宿主机 LAN IP（Linux 建议显式填写）
+```
+
+原因：
+- bridge 模式下沙箱容器会分配 Docker 内部 IP。
+- 外部调用方通常无法直接访问这些内部 IP。
+- `host_ip` 会让端点解析返回对调用方可达的宿主地址。
+
+对于无法直连 sandbox bridge 地址的 SDK/API 调用方，可通过 server 代理获取端点：
+
+```bash
+curl -H "OPEN-SANDBOX-API-KEY: your-secret-api-key" \
+  "http://localhost:8080/v1/sandboxes/<sandbox-id>/endpoints/44772?use_server_proxy=true"
+```
+
+返回端点会被重写为 server 代理路径：
+- `<server-host>/sandboxes/<sandbox-id>/proxy/<port>`
+
+可参考 Compose 运行示例：
+- `server/docker-compose.example.yaml`
+
 **安全加固（适用于所有 Docker 模式）**
    ```toml
    [docker]
@@ -127,6 +156,41 @@ opensandbox-server init-config ~/.sandbox.toml --example k8s-zh
    ```
    更多 Docker 容器安全参考：https://docs.docker.com/engine/security/
 
+常见问题及解决方案请参阅 [故障排查](TROUBLESHOOTING_zh.md)。
+
+**Ingress 暴露（direct | gateway）**
+```toml
+[ingress]
+mode = "direct"  # Docker 运行时仅支持 direct（直连，无 L7 网关）
+# gateway.address = "*.example.com"  # 仅主机（域名/IP 或 IP:port），不允许带 scheme
+# gateway.route.mode = "wildcard"            # wildcard | uri | header
+```
+- `mode=direct`：默认；当 `runtime.type=docker` 时必须使用（客户端与 sandbox 直连，不经过网关）。
+- `mode=gateway`：配置外部入口。
+  - `gateway.address`：当 `gateway.route.mode=wildcard` 时必须是泛域名；其他模式需为域名/IP 或 IP:port。不允许携带 scheme，客户端自行选择 http/https。
+  - `gateway.route.mode`：`wildcard`（域名泛匹配）、`uri`（基于路径前缀）、`header`（基于请求头路由）。
+  - 返回示例：
+    - `wildcard`：`<sandbox-id>-<port>.example.com/path/to/request`
+    - `uri`：`10.0.0.1:8000/<sandbox-id>/<port>/path/to/request`
+    - `header`：`gateway.example.com`，请求头 `OpenSandbox-Ingress-To: <sandbox-id>-<port>`
+
+**Kubernetes 运行时**
+   ```toml
+   [runtime]
+   type = "kubernetes"
+   execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.5"
+
+   [kubernetes]
+   kubeconfig_path = "~/.kube/config"
+   namespace = "opensandbox"
+   workload_provider = "batchsandbox"        # 或 "agent-sandbox"
+   informer_enabled = true                   # Beta：启用 watch 缓存
+   informer_resync_seconds = 300             # Beta：全量刷新间隔
+   informer_watch_timeout_seconds = 60       # Beta：watch 超时重连间隔
+   ```
+   - Informer 配置为 **Beta**，默认开启以减少 API 压力；若需关闭设置 `informer_enabled = false`。
+   - resync / watch 超时用于控制缓存刷新频率，可根据集群 API 限流调优。
+
 ### Egress sidecar 配置与使用
 
 - **使用 `networkPolicy` 时必需**：配置 sidecar 镜像。当请求携带 `networkPolicy` 时，`egress.image` 配置项是必需的：
@@ -136,7 +200,7 @@ type = "docker"
 execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.6"
 
 [egress]
-image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:v1.0.0"
+image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:v1.0.1"
 ```
 
 - 仅支持 Docker bridge 模式（`network_mode=host` 时会拒绝携带 `networkPolicy` 的请求，或当 `egress.image` 未配置时也会拒绝）。
@@ -396,7 +460,6 @@ curl -X DELETE \
 |------|------|
 | `SANDBOX_CONFIG_PATH` | 覆盖配置文件位置 |
 | `DOCKER_HOST` | Docker 守护进程 URL（例如 `unix:///var/run/docker.sock`）|
-| `DOCKER_API_TIMEOUT` | Docker 客户端超时时间（秒，默认：180）|
 | `PENDING_FAILURE_TTL` | 失败的待处理沙箱的 TTL（秒，默认：3600）|
 
 ## 开发
